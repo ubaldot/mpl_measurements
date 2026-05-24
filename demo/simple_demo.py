@@ -4,10 +4,8 @@ import matplotlib.pyplot as plt
 from mpl_measurements import InteractiveScope
 
 x = np.linspace(0, 10, 1000)
-
-fig, axs = plt.subplots(1, 1, figsize=(10, 6), sharex=True, squeeze=False)
+fig, axs = plt.subplots(2, 2, sharex=True, squeeze=False)
 axs = axs.flatten()
-fig.subplots_adjust(right=0.78)
 
 for ii, ax in enumerate(axs):
     ax.plot(x, np.sin(x + ii), label=f"sin {ii}", picker=5)

@@ -38,12 +38,22 @@ class InteractiveScope:
         if not self.axes:
             raise ValueError("No axes available for InteractiveScope")
 
+        # Fix the text box
+        # Make some room for the text_box
+        fig.subplots_adjust(right=0.78)
         if info_text is None:
-            info_text = fig.text(
-                0.8,
-                0.9,
+            # TODO: use gridspec instead of add_axes so the text box won't get
+            # cut
+            # info_ax = fig.add_subplot(gs[:, -1])
+            info_ax = fig.add_axes([0.8, 0.1, 0.18, 0.8])
+            info_ax.axis("off")
+
+            info_text = info_ax.text(
+                0,
+                1,
                 "Select a line",
                 va="top",
+                transform=info_ax.transAxes,
                 bbox=dict(boxstyle="round", facecolor="wheat"),
             )
 
