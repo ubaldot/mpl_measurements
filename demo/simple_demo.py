@@ -5,17 +5,9 @@ from mpl_measurements import InteractiveScope
 
 x = np.linspace(0, 10, 1000)
 
-fig, axs = plt.subplots(2, 2, figsize=(10, 6), sharex=True)
+fig, axs = plt.subplots(1, 1, figsize=(10, 6), sharex=True, squeeze=False)
 axs = axs.flatten()
 fig.subplots_adjust(right=0.78)
-
-info_text = fig.text(
-    0.8,
-    0.9,
-    "Select a line",
-    va="top",
-    bbox=dict(boxstyle="round", facecolor="wheat"),
-)
 
 for ii, ax in enumerate(axs):
     ax.plot(x, np.sin(x + ii), label=f"sin {ii}", picker=5)
@@ -23,6 +15,6 @@ for ii, ax in enumerate(axs):
     ax.set_title(f"Axes {ii}")
     ax.legend()
 
-scope = InteractiveScope(fig, axs, info_text)
+scope = InteractiveScope(fig)
 
 plt.show()

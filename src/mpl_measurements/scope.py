@@ -31,13 +31,26 @@ class AxisState:
 # Main interactive controller
 # =========================================================
 class InteractiveScope:
-    def __init__(self, fig, axes, info_text):
+    def __init__(self, fig, axes=None, info_text=None):
         self.fig = fig
-        self.axes = axes
+
+        self.axes = axes if axes is not None else fig.axes
+        if not self.axes:
+            raise ValueError("No axes available for InteractiveScope")
+
+        if info_text is None:
+            info_text = fig.text(
+                0.8,
+                0.9,
+                "Select a line",
+                va="top",
+                bbox=dict(boxstyle="round", facecolor="wheat"),
+            )
+
         self.info_text = info_text
 
         # state per axis
-        self.state = {ax: AxisState() for ax in axes}
+        self.state = {ax: AxisState() for ax in self.axes}
 
         # connect events (store IDs for future cleanup)
         self.cid_pick = fig.canvas.mpl_connect("pick_event", self.on_pick)
