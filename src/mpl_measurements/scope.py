@@ -1,7 +1,24 @@
 import numpy as np
 
+from typing import TypedDict
 
-def compute_window_stats(xdata, ydata, x1, x2):
+# For type-annotations
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.text import Text
+from matplotlib.backend_bases import PickEvent
+from matplotlib.backend_bases import MouseEvent
+from matplotlib.lines import Line2D
+
+from numpy.typing import NDArray
+
+
+def compute_window_stats(
+    xdata: NDArray[np.floating],
+    ydata: NDArray[np.floating],
+    x1: float,
+    x2: float,
+) -> tuple[np.floating, np.floating, np.floating]:
     xmin, xmax = sorted([x1, x2])
     mask = (xdata >= xmin) & (xdata <= xmax)
     y_win = ydata[mask]
@@ -19,48 +36,60 @@ def compute_window_stats(xdata, ydata, x1, x2):
 # =========================================================
 # State container
 # =========================================================
-class AxisState:
-    def __init__(self):
-        self.selected_line = None
-        self.cursor_lines = []
-        self.cursor_points = []
-        self.positions = []
+class AxisState(TypedDict):
+    selected_line: Line2D | None
+    cursor_lines: list
+    cursor_points: list
+    positions: list[tuple[float, float]]
 
 
 # =========================================================
 # Main interactive controller
 # =========================================================
 class InteractiveScope:
-    def __init__(self, fig, axes=None, info_text=None):
+    def __init__(
+        self,
+        fig: Figure,
+        axes: Axes | list[Axes] | None = None,
+    ) -> None:
         self.fig = fig
 
         self.axes = axes if axes is not None else fig.axes
+
+        # normalize single Axes → list
+        if isinstance(self.axes, Axes):
+            self.axes = [self.axes]
+
         if not self.axes:
             raise ValueError("No axes available for InteractiveScope")
 
         # Fix the text box
         # Make some room for the text_box
         fig.subplots_adjust(right=0.78)
-        if info_text is None:
-            # TODO: use gridspec instead of add_axes so the text box won't get
-            # cut
-            # info_ax = fig.add_subplot(gs[:, -1])
-            info_ax = fig.add_axes([0.8, 0.1, 0.18, 0.8])
-            info_ax.axis("off")
+        info_ax = fig.add_axes([0.8, 0.1, 0.18, 0.8])
+        info_ax.axis("off")
 
-            info_text = info_ax.text(
-                0,
-                1,
-                "Select a line",
-                va="top",
-                transform=info_ax.transAxes,
-                bbox=dict(boxstyle="round", facecolor="wheat"),
-            )
+        info_text = info_ax.text(
+            0,
+            1,
+            "Select a line",
+            va="top",
+            transform=info_ax.transAxes,
+            bbox=dict(boxstyle="round", facecolor="wheat"),
+        )
 
         self.info_text = info_text
 
         # state per axis
-        self.state = {ax: AxisState() for ax in self.axes}
+        def new_axis_state() -> AxisState:
+            return {
+                "selected_line": None,
+                "cursor_lines": [],
+                "cursor_points": [],
+                "positions": [],
+            }
+
+        self.state = {ax: new_axis_state() for ax in self.axes}
 
         # connect events (store IDs for future cleanup)
         self.cid_pick = fig.canvas.mpl_connect("pick_event", self.on_pick)
@@ -72,21 +101,28 @@ class InteractiveScope:
     # -----------------------------------------------------
     # Line selection
     # -----------------------------------------------------
-    def on_pick(self, event):
+    def on_pick(self, event: PickEvent) -> None:
         ax = event.artist.axes
+        if ax not in self.state:
+            return
+
         state = self.state[ax]
 
-        state.selected_line = event.artist
+        state["selected_line"] = event.artist
 
         # reset visual emphasis
         for line in ax.get_lines():
             line.set_linewidth(1)
 
-        state.selected_line.set_linewidth(3)
+        selected = state["selected_line"]
+        if selected is None:
+            return
+
+        selected.set_linewidth(3)
 
         self.info_text.set_text(
             f"{ax.get_title()}\n"
-            f"Selected: {state.selected_line.get_label()}\n"
+            f"Selected: {selected.get_label()}\n"
             "Click twice to place cursors"
         )
 
@@ -95,13 +131,13 @@ class InteractiveScope:
     # -----------------------------------------------------
     # Cursor placement
     # -----------------------------------------------------
-    def on_click(self, event):
+    def on_click(self, event: MouseEvent) -> None:
         ax = event.inaxes
         if ax not in self.state:
             return
 
         state = self.state[ax]
-        line = state.selected_line
+        line = state["selected_line"]
         if line is None or event.xdata is None:
             return
 
@@ -117,35 +153,35 @@ class InteractiveScope:
         vline = ax.axvline(x_sel, color=color, linestyle="--")
         (point,) = ax.plot(x_sel, y_sel, "o", color=color)
 
-        state.cursor_lines.append(vline)
-        state.cursor_points.append(point)
-        state.positions.append((x_sel, y_sel))
+        state["cursor_lines"].append(vline)
+        state["cursor_points"].append(point)
+        state["positions"].append((x_sel, y_sel))
 
         # keep only last 2 cursors
-        if len(state.cursor_lines) > 2:
-            state.cursor_lines.pop(0).remove()
-            state.cursor_points.pop(0).remove()
-            state.positions.pop(0)
+        if len(state["cursor_lines"]) > 2:
+            state["cursor_lines"].pop(0).remove()
+            state["cursor_points"].pop(0).remove()
+            state["positions"].pop(0)
 
         self.update_measurements(ax, state)
 
     # -----------------------------------------------------
     # Measurements + UI update
     # -----------------------------------------------------
-    def update_measurements(self, ax, state):
-        line = state.selected_line
+    def update_measurements(self, ax: Axes, state: AxisState) -> None:
+        line = state["selected_line"]
 
         if line is None:
             return
 
-        if len(state.positions) < 2:
+        if len(state["positions"]) < 2:
             self.info_text.set_text(
                 f"{ax.get_title()}\n{line.get_label()}\nClick second point"
             )
             self.fig.canvas.draw_idle()
             return
 
-        (x1, y1), (x2, y2) = state.positions
+        (x1, y1), (x2, y2) = state["positions"]
 
         xdata = line.get_xdata()
         ydata = line.get_ydata()
@@ -172,19 +208,19 @@ class InteractiveScope:
     # -----------------------------------------------------
     # Reset
     # -----------------------------------------------------
-    def on_key(self, event):
+    def on_key(self, event: PickEvent) -> None:
         if event.key != "r":
             return
 
         for ax, state in self.state.items():
-            for l in state.cursor_lines:
+            for l in state["cursor_lines"]:
                 l.remove()
-            for p in state.cursor_points:
+            for p in state["cursor_points"]:
                 p.remove()
 
-            state.cursor_lines.clear()
-            state.cursor_points.clear()
-            state.positions.clear()
+            state["cursor_lines"].clear()
+            state["cursor_points"].clear()
+            state["positions"].clear()
 
         self.info_text.set_text("Reset — select a line")
         self.fig.canvas.draw_idle()
