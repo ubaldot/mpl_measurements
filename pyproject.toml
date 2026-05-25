@@ -1,6 +1,6 @@
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 # General info
@@ -40,6 +40,8 @@ keywords = [
 build = ["pdm"]
 dev = [
     "ruff",
+    "build",
+    "twine"
 ]
 
 [project.urls]

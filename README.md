@@ -26,6 +26,8 @@ for ii, ax in enumerate(axs):
     ax.set_title(f"Axes {ii}")
     ax.legend()
 
+# You can also call e.g. InteractiveScope(fig, axes=[axs[0], axs[1]]) if you
+# want the measurements tool active only on axes axs[0], axs[1]
 scope = InteractiveScope(fig)
 
 plt.show()
